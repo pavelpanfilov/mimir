@@ -1369,59 +1369,34 @@ func (i *Ingester) PushWithCleanup(ctx context.Context, req *mimirpb.WriteReques
 				})
 			},
 			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) {
+				var mimirErr globalerror.ID
+				switch {
+				case errors.Is(err, histogram.ErrHistogramCountMismatch):
+					mimirErr = globalerror.NativeHistogramCountMismatch
+				case errors.Is(err, histogram.ErrHistogramCountNotBigEnough):
+					mimirErr = globalerror.NativeHistogramCountNotBigEnough
+				case errors.Is(err, histogram.ErrHistogramNegativeBucketCount):
+					mimirErr = globalerror.NativeHistogramNegativeBucketCount
+				case errors.Is(err, histogram.ErrHistogramSpanNegativeOffset):
+					mimirErr = globalerror.NativeHistogramSpanNegativeOffset
+				case errors.Is(err, histogram.ErrHistogramSpansBucketsMismatch):
+					mimirErr = globalerror.NativeHistogramSpansBucketsMismatch
+				case errors.Is(err, histogram.ErrHistogramCustomBucketsMismatch):
+					mimirErr = globalerror.NativeHistogramCustomBucketsMismatch
+				case errors.Is(err, histogram.ErrHistogramCustomBucketsInvalid):
+					mimirErr = globalerror.NativeHistogramCustomBucketsInvalid
+				case errors.Is(err, histogram.ErrHistogramCustomBucketsInfinite):
+					mimirErr = globalerror.NativeHistogramCustomBucketsInfinite
+				default:
+					level.Warn(i.logger).Log("msg", "Unknown histogram.Error", "err", err)
+					return
+				}
+
 				stats.invalidNativeHistogramCount++
 				cast.IncrementDiscardedSamples(labels, 1, reasonInvalidNativeHistogram, startAppend)
+
 				updateFirstPartial(i.errorSamplers.nativeHistogramValidationError, func() softError {
-					return newNativeHistogramValidationError(globalerror.NativeHistogramCountMismatch, err, model.Time(timestamp), labels)
-				})
-			},
-			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) {
-				stats.invalidNativeHistogramCount++
-				cast.IncrementDiscardedSamples(labels, 1, reasonInvalidNativeHistogram, startAppend)
-				updateFirstPartial(i.errorSamplers.nativeHistogramValidationError, func() softError {
-					return newNativeHistogramValidationError(globalerror.NativeHistogramCountNotBigEnough, err, model.Time(timestamp), labels)
-				})
-			},
-			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) {
-				stats.invalidNativeHistogramCount++
-				cast.IncrementDiscardedSamples(labels, 1, reasonInvalidNativeHistogram, startAppend)
-				updateFirstPartial(i.errorSamplers.nativeHistogramValidationError, func() softError {
-					return newNativeHistogramValidationError(globalerror.NativeHistogramNegativeBucketCount, err, model.Time(timestamp), labels)
-				})
-			},
-			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) {
-				stats.invalidNativeHistogramCount++
-				cast.IncrementDiscardedSamples(labels, 1, reasonInvalidNativeHistogram, startAppend)
-				updateFirstPartial(i.errorSamplers.nativeHistogramValidationError, func() softError {
-					return newNativeHistogramValidationError(globalerror.NativeHistogramSpanNegativeOffset, err, model.Time(timestamp), labels)
-				})
-			},
-			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) {
-				stats.invalidNativeHistogramCount++
-				cast.IncrementDiscardedSamples(labels, 1, reasonInvalidNativeHistogram, startAppend)
-				updateFirstPartial(i.errorSamplers.nativeHistogramValidationError, func() softError {
-					return newNativeHistogramValidationError(globalerror.NativeHistogramSpansBucketsMismatch, err, model.Time(timestamp), labels)
-				})
-			},
-			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) {
-				stats.invalidNativeHistogramCount++
-				cast.IncrementDiscardedSamples(labels, 1, reasonInvalidNativeHistogram, startAppend)
-				updateFirstPartial(i.errorSamplers.nativeHistogramValidationError, func() softError {
-					return newNativeHistogramValidationError(globalerror.NativeHistogramCustomBucketsMismatch, err, model.Time(timestamp), labels)
-				})
-			},
-			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) {
-				stats.invalidNativeHistogramCount++
-				cast.IncrementDiscardedSamples(labels, 1, reasonInvalidNativeHistogram, startAppend)
-				updateFirstPartial(i.errorSamplers.nativeHistogramValidationError, func() softError {
-					return newNativeHistogramValidationError(globalerror.NativeHistogramCustomBucketsInvalid, err, model.Time(timestamp), labels)
-				})
-			},
-			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) {
-				stats.invalidNativeHistogramCount++
-				cast.IncrementDiscardedSamples(labels, 1, reasonInvalidNativeHistogram, startAppend)
-				updateFirstPartial(i.errorSamplers.nativeHistogramValidationError, func() softError {
-					return newNativeHistogramValidationError(globalerror.NativeHistogramCustomBucketsInfinite, err, model.Time(timestamp), labels)
+					return newNativeHistogramValidationError(mimirErr, err, model.Time(timestamp), labels)
 				})
 			},
 		)
