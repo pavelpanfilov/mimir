@@ -51,7 +51,29 @@ type TSDBBuilder struct {
 var softErrProcessor = mimir_storage.NewSoftAppendErrorProcessor(
 	func() {}, func(int64, []mimirpb.LabelAdapter) {}, func(int64, []mimirpb.LabelAdapter) {},
 	func(int64, []mimirpb.LabelAdapter) {}, func(int64, []mimirpb.LabelAdapter) {}, func(string, int64, []mimirpb.LabelAdapter) {},
-	func([]mimirpb.LabelAdapter) {}, func([]mimirpb.LabelAdapter) {}, func(error, int64, []mimirpb.LabelAdapter) {},
+	func([]mimirpb.LabelAdapter) {}, func([]mimirpb.LabelAdapter) {},
+	func(err error, _ int64, _ []mimirpb.LabelAdapter) bool {
+		switch {
+		case errors.Is(err, histogram.ErrHistogramCountMismatch):
+			return true
+		case errors.Is(err, histogram.ErrHistogramCountNotBigEnough):
+			return true
+		case errors.Is(err, histogram.ErrHistogramNegativeBucketCount):
+			return true
+		case errors.Is(err, histogram.ErrHistogramSpanNegativeOffset):
+			return true
+		case errors.Is(err, histogram.ErrHistogramSpansBucketsMismatch):
+			return true
+		case errors.Is(err, histogram.ErrHistogramCustomBucketsMismatch):
+			return true
+		case errors.Is(err, histogram.ErrHistogramCustomBucketsInvalid):
+			return true
+		case errors.Is(err, histogram.ErrHistogramCustomBucketsInfinite):
+			return true
+		default:
+			return false
+		}
+	},
 )
 
 type tsdbTenant struct {

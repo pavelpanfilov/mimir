@@ -1368,7 +1368,7 @@ func (i *Ingester) PushWithCleanup(ctx context.Context, req *mimirpb.WriteReques
 					return newPerMetricSeriesLimitReachedError(i.limiter.limits.MaxGlobalSeriesPerMetric(userID), labels)
 				})
 			},
-			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) {
+			func(err error, timestamp int64, labels []mimirpb.LabelAdapter) bool {
 				var mimirErr globalerror.ID
 				switch {
 				case errors.Is(err, histogram.ErrHistogramCountMismatch):
@@ -1389,7 +1389,7 @@ func (i *Ingester) PushWithCleanup(ctx context.Context, req *mimirpb.WriteReques
 					mimirErr = globalerror.NativeHistogramCustomBucketsInfinite
 				default:
 					level.Warn(i.logger).Log("msg", "Unknown histogram.Error", "err", err)
-					return
+					return false
 				}
 
 				stats.invalidNativeHistogramCount++
@@ -1398,6 +1398,8 @@ func (i *Ingester) PushWithCleanup(ctx context.Context, req *mimirpb.WriteReques
 				updateFirstPartial(i.errorSamplers.nativeHistogramValidationError, func() softError {
 					return newNativeHistogramValidationError(mimirErr, err, model.Time(timestamp), labels)
 				})
+
+				return true
 			},
 		)
 	)
